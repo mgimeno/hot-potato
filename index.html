@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hot Potato!</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Boogaloo&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Design tokens ─────────────────────────────────────── */
+    :root {
+      --bg-deep:    #0d0810;
+      --bg-mid:     #1a0f22;
+      --accent:     #e8a030;
+      --accent-hot: #ff5c1a;
+      --text:       #f5e8d0;
+      --text-dim:   #a08878;
+      --card-bg:    rgba(255,255,255,0.04);
+      --card-border:rgba(255,255,255,0.10);
+      --error:      #ff4d4d;
+      --balloon-a:  #c97d40;
+      --balloon-b:  #8b3a10;
+      --balloon-c:  #5a1e05;
+      --balloon-hi: rgba(255,230,180,0.45);
+      --radius:     16px;
+    }
+
+    /* ── Reset & base ──────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      font-size: 16px;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    body {
+      width: 100%; height: 100dvh; overflow: hidden;
+      background: var(--bg-deep);
+      font-family: 'Nunito', sans-serif;
+      color: var(--text);
+      margin: 0;
+    }
+
+    /* Starfield canvas background */
+    #starfield {
+      position: fixed; inset: 0;
+      background:
+        radial-gradient(ellipse at 20% 30%, #2a0a3a 0%, transparent 55%),
+        radial-gradient(ellipse at 80% 70%, #1a0520 0%, transparent 55%),
+        var(--bg-deep);
+      z-index: 0;
+    }
+    #starfield::before,
+    #starfield::after {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,.7) 0%, transparent 100%),
+        radial-gradient(1px 1px at 30% 55%, rgba(255,255,255,.5) 0%, transparent 100%),
+        radial-gradient(1px 1px at 55% 15%, rgba(255,255,255,.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 70% 40%, rgba(255,255,255,.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 85% 10%, rgba(255,255,255,.8) 0%, transparent 100%),
+        radial-gradient(1px 1px at 15% 75%, rgba(255,255,255,.5) 0%, transparent 100%),
+        radial-gradient(1px 1px at 45% 85%, rgba(255,255,255,.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 90% 60%, rgba(255,255,255,.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 60% 70%, rgba(255,255,255,.3) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 25% 35%, rgba(255,220,150,.9) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 75% 25%, rgba(255,220,150,.7) 0%, transparent 100%);
+    }
+    #starfield::after {
+      background-image:
+        radial-gradient(1px 1px at 5%  90%, rgba(255,255,255,.5) 0%, transparent 100%),
+        radial-gradient(1px 1px at 38% 5%,  rgba(255,255,255,.6) 0%, transparent 100%),
+        radial-gradient(1px 1px at 65% 95%, rgba(255,255,255,.4) 0%, transparent 100%),
+        radial-gradient(1px 1px at 92% 80%, rgba(255,255,255,.7) 0%, transparent 100%),
+        radial-gradient(1px 1px at 48% 50%, rgba(255,255,255,.3) 0%, transparent 100%),
+        radial-gradient(1.5px 1.5px at 80% 88%, rgba(200,180,255,.8) 0%, transparent 100%);
+      animation: twinkle 4s ease-in-out infinite alternate;
+    }
+    @keyframes twinkle {
+      from { opacity: .6; }
+      to   { opacity: 1;  }
+    }
+
+    /* ── Shared layout wrapper ─────────────────────────────── */
+    #app {
+      position: fixed; inset: 0; z-index: 1;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       SETUP SCREEN
+    ═══════════════════════════════════════════════════════ */
+    #setup-screen {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 28px;
+      animation: fadeIn .5s ease;
+    }
+
+    .setup-title {
+      font-family: 'Boogaloo', cursive;
+      font-size: clamp(2.2rem, 6vw, 3.8rem);
+      color: var(--accent);
+      text-shadow: 0 0 30px rgba(232,160,48,.5), 0 2px 0 rgba(0,0,0,.6);
+      letter-spacing: .03em;
+    }
+    .setup-title span {
+      color: var(--accent-hot);
+      text-shadow: 0 0 40px rgba(255,92,26,.6), 0 2px 0 rgba(0,0,0,.6);
+    }
+
+    .setup-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 36px 40px;
+      display: flex; flex-direction: column; gap: 20px;
+      width: min(380px, 90vw);
+      box-shadow: 0 8px 48px rgba(0,0,0,.5);
+    }
+
+    .field-group {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .field-group label {
+      font-size: .82rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .field-group input {
+      background: rgba(255,255,255,.06);
+      border: 1.5px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text);
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+      -moz-appearance: textfield;
+    }
+    .field-group input::-webkit-outer-spin-button,
+    .field-group input::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .field-group input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(232,160,48,.2);
+    }
+    .field-group input.invalid {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3px rgba(255,77,77,.2);
+    }
+    .field-error {
+      font-size: .75rem;
+      color: var(--error);
+      min-height: 1em;
+      font-weight: 600;
+    }
+
+    #start-btn {
+      margin-top: 6px;
+      font-family: 'Boogaloo', cursive;
+      font-size: 1.4rem;
+      letter-spacing: .06em;
+      padding: 14px 0;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hot) 100%);
+      color: #1a0800;
+      font-weight: 700;
+      transition: opacity .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 4px 20px rgba(255,92,26,.4);
+    }
+    #start-btn:not(:disabled):hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(255,92,26,.55);
+    }
+    #start-btn:not(:disabled):active { transform: translateY(0); }
+    #start-btn:disabled {
+      opacity: .35; cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       GAME SCREEN
+    ═══════════════════════════════════════════════════════ */
+    #game-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%; height: 100%;
+    }
+    #game-screen.active { display: flex; }
+
+    /* Timer bar at top */
+    #timer-bar {
+      position: absolute; top: 0; left: 0; right: 0;
+      padding: 18px 0 14px;
+      text-align: center;
+      background: linear-gradient(to bottom, rgba(13,8,16,.9) 0%, transparent 100%);
+    }
+    #timer-display {
+      font-family: 'Boogaloo', cursive;
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      color: var(--accent);
+      letter-spacing: .12em;
+      text-shadow: 0 0 20px rgba(232,160,48,.4);
+    }
+    #timer-label {
+      font-size: .7rem;
+      letter-spacing: .18em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-top: 2px;
+    }
+
+    /* Balloon stage */
+    #stage {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+
+    /* ── Balloon ───────────────────────────────────────────── */
+    #balloon-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      transition: none;
+    }
+
+    #balloon-body {
+      border-radius: 50% 50% 50% 50% / 55% 55% 45% 45%;
+      background: radial-gradient(
+        ellipse at 32% 28%,
+        #e8b87a 0%,
+        var(--balloon-a) 22%,
+        var(--balloon-b) 58%,
+        var(--balloon-c) 100%
+      );
+      position: relative;
+      box-shadow:
+        inset -6px -8px 20px rgba(0,0,0,.45),
+        0 10px 40px rgba(0,0,0,.55);
+      flex-shrink: 0;
+      transition: width .9s cubic-bezier(.25,.8,.25,1),
+                  height .9s cubic-bezier(.25,.8,.25,1);
+    }
+
+    /* Highlight gloss */
+    #balloon-body::before {
+      content: '';
+      position: absolute;
+      top: 12%; left: 20%;
+      width: 28%; height: 22%;
+      background: var(--balloon-hi);
+      border-radius: 50%;
+      filter: blur(4px);
+      pointer-events: none;
+    }
+
+    /* Knot at bottom */
+    #balloon-knot {
+      width: 0; height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 14px solid var(--balloon-c);
+      margin-top: -1px;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,.4));
+    }
+
+    /* String */
+    #balloon-string {
+      width: 1px;
+      background: linear-gradient(to bottom, var(--text-dim), transparent);
+      margin-top: 2px;
+      flex-shrink: 0;
+      transition: height .9s cubic-bezier(.25,.8,.25,1);
+    }
+
+    /* Gentle sway */
+    @keyframes sway {
+      0%   { transform: rotate(-2.5deg); }
+      50%  { transform: rotate(2.5deg);  }
+      100% { transform: rotate(-2.5deg); }
+    }
+    #balloon-wrap { animation: sway 3.5s ease-in-out infinite; transform-origin: bottom center; }
+
+    /* ── Explosion ─────────────────────────────────────────── */
+    #explosion {
+      display: none;
+      position: relative;
+      width: 300px; height: 300px;
+      align-items: center; justify-content: center;
+    }
+    #explosion.active { display: flex; }
+
+    /* Flash ring */
+    #explosion::before {
+      content: '';
+      position: absolute;
+      width: 100%; height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff8e0 0%, #ffb020 30%, transparent 70%);
+      animation: flash .35s ease-out forwards;
+    }
+    @keyframes flash {
+      0%   { transform: scale(0); opacity: 1; }
+      60%  { transform: scale(1.2); opacity: .9; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    /* Shockwave ring */
+    #explosion::after {
+      content: '';
+      position: absolute;
+      width: 80px; height: 80px;
+      border: 6px solid rgba(255,180,30,.8);
+      border-radius: 50%;
+      animation: shockwave .6s ease-out .05s forwards;
+    }
+    @keyframes shockwave {
+      0%   { transform: scale(.3); opacity: 1; }
+      100% { transform: scale(4); opacity: 0; }
+    }
+
+    /* Text in center */
+    #explosion-text {
+      position: relative; z-index: 2;
+      font-family: 'Boogaloo', cursive;
+      font-size: clamp(3rem, 8vw, 5rem);
+      color: var(--accent);
+      text-shadow:
+        0 0 20px rgba(255,180,30,.9),
+        0 0 40px rgba(255,100,0,.6),
+        0 3px 0 rgba(0,0,0,.7);
+      animation: popIn .25s cubic-bezier(.2, 1.4, .4, 1) forwards;
+    }
+    @keyframes popIn {
+      from { transform: scale(0) rotate(-15deg); opacity: 0; }
+      to   { transform: scale(1) rotate(0deg);   opacity: 1; }
+    }
+
+    /* Particle shards */
+    .shard {
+      position: absolute;
+      width: 12px; height: 26px;
+      border-radius: 3px;
+      background: linear-gradient(to bottom, var(--balloon-a), var(--balloon-c));
+      transform-origin: center bottom;
+      animation: shoot var(--dur, .7s) ease-out var(--delay, 0s) forwards;
+      opacity: 0;
+    }
+    @keyframes shoot {
+      0%   { transform: translate(0,0) rotate(var(--rot)) scale(1); opacity: 1; }
+      80%  { opacity: .8; }
+      100% { transform: translate(var(--tx), var(--ty)) rotate(calc(var(--rot) + 360deg)) scale(.4);
+             opacity: 0; }
+    }
+
+    /* Small sparks */
+    .spark {
+      position: absolute;
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--accent-hot);
+      animation: spark var(--dur, .5s) ease-out var(--delay, 0s) forwards;
+      opacity: 0;
+    }
+    @keyframes spark {
+      0%   { transform: translate(0,0); opacity: 1; }
+      100% { transform: translate(var(--tx), var(--ty)) scale(.1); opacity: 0; }
+    }
+
+    /* ── Misc ─────────────────────────────────────────────── */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0);    }
+    }
+
+    #replay-btn {
+      position: absolute; bottom: 32px;
+      font-family: 'Boogaloo', cursive;
+      font-size: 1.2rem;
+      letter-spacing: .06em;
+      padding: 11px 32px;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-hot) 100%);
+      color: #1a0800;
+      box-shadow: 0 4px 20px rgba(255,92,26,.4);
+      display: none;
+      animation: fadeIn .5s .6s ease both;
+      transition: transform .15s, box-shadow .2s;
+    }
+    #replay-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(255,92,26,.55);
+    }
+    #replay-btn.visible { display: block; }
+
+    /* ── Language selector ────────────────────────────── */
+    .lang-row {
+      display: flex; align-items: center; justify-content: flex-end;
+      gap: 8px; margin-bottom: -6px;
+    }
+    .lang-row label {
+      font-size: .72rem;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      font-weight: 700;
+    }
+    #lang-select {
+      appearance: none;
+      background: rgba(255,255,255,.06) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a08878'/%3E%3C/svg%3E") no-repeat right 10px center;
+      border: 1.5px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      padding: 6px 28px 6px 10px;
+      font-family: 'Nunito', sans-serif;
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    #lang-select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(232,160,48,.2);
+    }
+    #lang-select option { background: #1a0f22; color: var(--text); }
+  </style>
+</head>
+<body>
+
+<div id="starfield"></div>
+
+<div id="app">
+
+  <!-- ── SETUP SCREEN ─────────────────────────────── -->
+  <div id="setup-screen">
+    <h1 class="setup-title" id="game-title">Hot <span>Potato!</span></h1>
+
+    <div class="setup-card">
+
+      <div class="lang-row">
+        <select id="lang-select">
+          <option value="en">English</option>
+          <option value="es">Español</option>
+        </select>
+      </div>
+
+      <div class="field-group">
+        <label for="min-input" data-i18n="labelMin">Min Seconds</label>
+        <input id="min-input" type="number" min="1" placeholder="e.g. 5" autocomplete="off" data-ph-i18n="phMin" />
+        <span class="field-error" id="min-error"></span>
+      </div>
+
+      <div class="field-group">
+        <label for="max-input" data-i18n="labelMax">Max Seconds</label>
+        <input id="max-input" type="number" min="2" placeholder="e.g. 15" autocomplete="off" data-ph-i18n="phMax" />
+        <span class="field-error" id="max-error"></span>
+      </div>
+
+      <button id="start-btn" disabled data-i18n="start">Start</button>
+    </div>
+  </div>
+
+  <!-- ── GAME SCREEN ──────────────────────────────── -->
+  <div id="game-screen">
+
+    <div id="timer-bar">
+      <div id="timer-display">00:00</div>
+      <div id="timer-label">elapsed</div>
+    </div>
+
+    <div id="stage">
+
+      <!-- Balloon -->
+      <div id="balloon-wrap">
+        <div id="balloon-body"></div>
+        <div id="balloon-knot"></div>
+        <div id="balloon-string"></div>
+      </div>
+
+      <!-- Explosion (hidden until pop) -->
+      <div id="explosion">
+        <div id="explosion-text">BOOM!</div>
+      </div>
+
+    </div>
+
+    <button id="replay-btn">↩ Play Again</button>
+
+  </div>
+
+</div>
+
+<!-- Hidden audio element -->
+<audio id="boom-audio" preload="auto">
+  <source src="explosion.mp3" type="audio/mpeg" />
+</audio>
+<audio id="inflate-audio" preload="auto" loop>
+  <source src="inflating.mp3" type="audio/mpeg" />
+</audio>
+
+<script>
+  /* ── DOM refs ────────────────────────────────────── */
+  const setupScreen  = document.getElementById('setup-screen');
+  const gameScreen   = document.getElementById('game-screen');
+  const minInput     = document.getElementById('min-input');
+  const maxInput     = document.getElementById('max-input');
+  const minError     = document.getElementById('min-error');
+  const maxError     = document.getElementById('max-error');
+  const startBtn     = document.getElementById('start-btn');
+  const timerDisplay = document.getElementById('timer-display');
+  const timerLabel   = document.getElementById('timer-label');
+  const balloonWrap  = document.getElementById('balloon-wrap');
+  const balloonBody  = document.getElementById('balloon-body');
+  const balloonStr   = document.getElementById('balloon-string');
+  const explosionEl  = document.getElementById('explosion');
+  const explosionTxt = document.getElementById('explosion-text');
+  const replayBtn    = document.getElementById('replay-btn');
+  const boomAudio     = document.getElementById('boom-audio');
+  const inflateAudio  = document.getElementById('inflate-audio');
+  const langSelect   = document.getElementById('lang-select');
+
+  /* ── i18n ────────────────────────────────────────── */
+  const STRINGS = {
+    en: {
+      title:      'Hot Potato!',
+      titleMain:  'Hot',
+      titleAccent:'Potato!',
+      labelMin:   'Min seconds to explode',
+      labelMax:   'Max seconds to explode',
+      phMin:      'e.g. 10',
+      phMax:      'e.g. 60',
+      start:      'Start',
+      timerLabel: 'elapsed',
+      replay:     '↩ Play Again',
+      boom:       'BOOM!',
+      errMinInt:  'Must be ≥ 1',
+      errMaxInt:  'Must be a positive number',
+      errMaxGt:   'Must be greater than Min seconds',
+    },
+    es: {
+      title:      '¡Patata Caliente!',
+      titleMain:  'Patata',
+      titleAccent:'¡Caliente!',
+      labelMin:   'Mín. segundos para explotar',
+      labelMax:   'Máx. segundos para explotar',
+      phMin:      'ej. 10',
+      phMax:      'ej. 60',
+      start:      'Comenzar',
+      timerLabel: 'transcurrido',
+      replay:     '↩ Jugar de nuevo',
+      boom:       '¡BOOM!',
+      errMinInt:  'Debe ser ≥ 1',
+      errMaxInt:  'Debe ser un numbero positivo',
+      errMaxGt:   'Debe ser mayor que los Mín. segundos',
+    },
+  };
+
+  const SUPPORTED_LANGS = ['en', 'es'];
+  function detectLang() {
+    const prefs = navigator.languages || [navigator.language || 'en'];
+    for (const pref of prefs) {
+      const code = pref.toLowerCase().split('-')[0];
+      if (SUPPORTED_LANGS.includes(code)) return code;
+    }
+    return 'en';
+  }
+  let lang = detectLang();
+  langSelect.value = lang;
+
+  function t(key) { return STRINGS[lang][key] || STRINGS.en[key]; }
+
+  function applyLang() {
+    // Update page title
+    document.title = t('title');
+    const titleEl = document.getElementById('game-title');
+    if (titleEl) titleEl.innerHTML = t('titleMain') + ' <span>' + t('titleAccent') + '</span>';
+
+    // Update all elements with data-i18n
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      el.textContent = t(el.dataset.i18n);
+    });
+    // Update placeholders
+    document.querySelectorAll('[data-ph-i18n]').forEach(el => {
+      el.placeholder = t(el.dataset.phI18n);
+    });
+    // Update game-screen dynamic labels
+    timerLabel.textContent   = t('timerLabel');
+    replayBtn.textContent    = t('replay');
+    explosionTxt.textContent = t('boom');
+    // Re-run validation to refresh error messages in new language
+    validate();
+  }
+
+  langSelect.addEventListener('change', () => {
+    lang = langSelect.value;
+    applyLang();
+  });
+
+  /* ── Balloon size constants ──────────────────────── */
+  // vmin-based so it's always viewport-safe
+  const MIN_SIZE_VMIN  = 8;   // starting diameter (vmin)
+  const MAX_SIZE_VMIN  = 52;  // largest diameter before explosion (vmin)
+
+  /* ── State ───────────────────────────────────────── */
+  let elapsed        = 0;
+  let explodeSeconds = 0;
+  let ticker         = null;
+
+  /* ── Helpers ─────────────────────────────────────── */
+  function vminToPx(v) {
+    return v / 100 * Math.min(window.innerWidth, window.innerHeight);
+  }
+
+  function formatTime(secs) {
+    const m = String(Math.floor(secs / 60)).padStart(2, '0');
+    const s = String(secs % 60).padStart(2, '0');
+    return `${m}:${s}`;
+  }
+
+  function randInt(min, max) {
+    const lowerBound = Math.ceil((min + max) / 2);
+    return Math.floor(Math.random() * (max - lowerBound + 1)) + lowerBound;
+  }
+
+  function setBalloonSize(px) {
+    // Aspect ratio: typical balloon is slightly taller than wide
+    const w = Math.round(px);
+    const h = Math.round(px * 1.18);
+    balloonBody.style.width  = w + 'px';
+    balloonBody.style.height = h + 'px';
+    // String length grows slightly with balloon
+    const strLen = Math.max(20, Math.round(px * 0.35));
+    balloonStr.style.height = strLen + 'px';
+  }
+
+  /* ── Validation ──────────────────────────────────── */
+  function validate() {
+    const rawMin = minInput.value.trim();
+    const rawMax = maxInput.value.trim();
+    let ok = true;
+
+    // Min validation
+    if (rawMin === '') {
+      minError.textContent = '';
+      minInput.classList.remove('invalid');
+    } else {
+      const v = parseInt(rawMin, 10);
+      if (!Number.isInteger(v) || v < 1 || String(v) !== rawMin) {
+        minError.textContent = t('errMinInt');
+        minInput.classList.add('invalid');
+        ok = false;
+      } else {
+        minError.textContent = '';
+        minInput.classList.remove('invalid');
+      }
+    }
+
+    // Max validation
+    if (rawMax === '') {
+      maxError.textContent = '';
+      maxInput.classList.remove('invalid');
+    } else {
+      const v = parseInt(rawMax, 10);
+      if (!Number.isInteger(v) || v < 1 || String(v) !== rawMax) {
+        maxError.textContent = t('errMaxInt');
+        maxInput.classList.add('invalid');
+        ok = false;
+      } else {
+        maxError.textContent = '';
+        maxInput.classList.remove('invalid');
+      }
+    }
+
+    // Cross-field: max > min
+    if (rawMin !== '' && rawMax !== '') {
+      const vMin = parseInt(rawMin, 10);
+      const vMax = parseInt(rawMax, 10);
+      if (!isNaN(vMin) && !isNaN(vMax)) {
+        if (vMax <= vMin) {
+          maxError.textContent = t('errMaxGt');
+          maxInput.classList.add('invalid');
+          ok = false;
+        }
+      }
+    }
+
+    // Enable start only when both fields filled and valid
+    const bothFilled = rawMin !== '' && rawMax !== '';
+    startBtn.disabled = !(ok && bothFilled);
+  }
+
+  minInput.addEventListener('input', validate);
+  maxInput.addEventListener('input', validate);
+
+  /* ── Start game ──────────────────────────────────── */
+  startBtn.addEventListener('click', () => {
+    const minSec = parseInt(minInput.value, 10);
+    const maxSec = parseInt(maxInput.value, 10);
+    explodeSeconds = randInt(minSec, maxSec);
+
+    // Transition screens
+    setupScreen.style.display = 'none';
+    gameScreen.classList.add('active');
+
+    // Reset UI
+    elapsed = 0;
+    timerDisplay.textContent = '00:00';
+    explosionEl.classList.remove('active');
+    balloonWrap.style.display = 'flex';
+    replayBtn.classList.remove('visible');
+
+    // Remove old shards
+    explosionEl.querySelectorAll('.shard, .spark').forEach(e => e.remove());
+    explosionEl.style.animation = '';
+    void explosionEl.offsetWidth;  // reflow
+
+    // Set initial balloon size
+    const initPx = vminToPx(MIN_SIZE_VMIN);
+    setBalloonSize(initPx);
+
+    // Start ticker
+    clearInterval(ticker);
+    ticker = setInterval(tick, 1000);
+
+    // Play inflating sound on loop
+    inflateAudio.currentTime = 0;
+    inflateAudio.play().catch(() => {});
+  });
+
+  /* ── Tick ────────────────────────────────────────── */
+  function tick() {
+    elapsed++;
+    timerDisplay.textContent = formatTime(elapsed);
+
+    if (elapsed < explodeSeconds) {
+      // Grow balloon
+      const progress = elapsed / explodeSeconds;   // 0 → 1
+      const eased    = Math.pow(progress, 0.7);    // ease out slightly
+      const sizePx   = vminToPx(MIN_SIZE_VMIN + (MAX_SIZE_VMIN - MIN_SIZE_VMIN) * eased);
+      setBalloonSize(sizePx);
+    } else {
+      // EXPLODE!
+      clearInterval(ticker);
+      explode();
+    }
+  }
+
+  /* ── Explosion ───────────────────────────────────── */
+  function explode() {
+    // Hide balloon
+    balloonWrap.style.display = 'none';
+
+    // Stop inflating sound, then play explosion
+    inflateAudio.pause();
+    inflateAudio.currentTime = 0;
+    boomAudio.currentTime = 0;
+    boomAudio.play().catch(() => {});
+
+    // Show explosion container
+    explosionEl.classList.add('active');
+
+    // Spawn shards (pieces of balloon rubber)
+    const SHARD_COUNT = 14;
+    for (let i = 0; i < SHARD_COUNT; i++) {
+      const el = document.createElement('div');
+      el.className = 'shard';
+      const angle    = (i / SHARD_COUNT) * 360;
+      const dist     = 80 + Math.random() * 120;
+      const rad      = (angle * Math.PI) / 180;
+      const tx       = Math.round(Math.cos(rad) * dist);
+      const ty       = Math.round(Math.sin(rad) * dist);
+      const rot      = Math.round(Math.random() * 360 - 180);
+      const dur      = (0.55 + Math.random() * 0.35).toFixed(2);
+      const delay    = (Math.random() * 0.12).toFixed(2);
+
+      el.style.cssText = `
+        --rot: ${rot}deg;
+        --tx: ${tx}px;
+        --ty: ${ty}px;
+        --dur: ${dur}s;
+        --delay: ${delay}s;
+      `;
+      // Vary shard colour slightly
+      const hue = Math.random() > 0.5 ? 'var(--balloon-a)' : 'var(--balloon-b)';
+      el.style.background = `linear-gradient(to bottom, ${hue}, var(--balloon-c))`;
+      explosionEl.appendChild(el);
+    }
+
+    // Spawn sparks
+    const SPARK_COUNT = 20;
+    for (let i = 0; i < SPARK_COUNT; i++) {
+      const el = document.createElement('div');
+      el.className = 'spark';
+      const angle = Math.random() * 360;
+      const dist  = 40 + Math.random() * 140;
+      const rad   = (angle * Math.PI) / 180;
+      const tx    = Math.round(Math.cos(rad) * dist);
+      const ty    = Math.round(Math.sin(rad) * dist);
+      const dur   = (0.3 + Math.random() * 0.3).toFixed(2);
+      const delay = (Math.random() * 0.15).toFixed(2);
+      const cols  = ['#ffcc30', '#ff8c00', '#ff4422', '#ffffff'];
+      el.style.background = cols[Math.floor(Math.random() * cols.length)];
+      el.style.cssText += `--tx: ${tx}px; --ty: ${ty}px; --dur: ${dur}s; --delay: ${delay}s;`;
+      explosionEl.appendChild(el);
+    }
+
+    // Show replay button
+    setTimeout(() => replayBtn.classList.add('visible'), 900);
+  }
+
+  /* ── Replay ──────────────────────────────────────── */
+  replayBtn.addEventListener('click', () => {
+    clearInterval(ticker);
+    inflateAudio.pause();
+    inflateAudio.currentTime = 0;
+    gameScreen.classList.remove('active');
+    setupScreen.style.display = '';
+    setupScreen.style.animation = 'none';
+    void setupScreen.offsetWidth;
+    setupScreen.style.animation = '';
+    // Reset inputs
+    minInput.value = '';
+    maxInput.value = '';
+    minInput.classList.remove('invalid');
+    maxInput.classList.remove('invalid');
+    minError.textContent = '';
+    maxError.textContent = '';
+    startBtn.disabled = true;
+  });
+</script>
+</body>
+</html>
