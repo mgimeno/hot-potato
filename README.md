@@ -4,7 +4,7 @@
 
 [https://www.marcosgimeno.com/hot-potato](https://www.marcosgimeno.com/hot-potato)
 
-## Development
+## Languages
 
 Available in English & Spanish.
 
