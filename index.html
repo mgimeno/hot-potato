@@ -463,17 +463,17 @@
 
       <div class="field-group">
         <label for="min-input" data-i18n="labelMin">Min Seconds</label>
-        <input id="min-input" type="number" min="1" placeholder="e.g. 5" autocomplete="off" data-ph-i18n="phMin" />
+        <input id="min-input" type="number" min="1" value="10" autocomplete="off" data-ph-i18n="phMin" />
         <span class="field-error" id="min-error"></span>
       </div>
 
       <div class="field-group">
         <label for="max-input" data-i18n="labelMax">Max Seconds</label>
-        <input id="max-input" type="number" min="2" placeholder="e.g. 15" autocomplete="off" data-ph-i18n="phMax" />
+        <input id="max-input" type="number" min="2" value="60" autocomplete="off" data-ph-i18n="phMax" />
         <span class="field-error" id="max-error"></span>
       </div>
 
-      <button id="start-btn" disabled data-i18n="start">Start</button>
+      <button id="start-btn" data-i18n="start">Start</button>
     </div>
   </div>
 
@@ -532,8 +532,8 @@
   const explosionEl  = document.getElementById('explosion');
   const explosionTxt = document.getElementById('explosion-text');
   const replayBtn    = document.getElementById('replay-btn');
-  const boomAudio     = document.getElementById('boom-audio');
-  const inflateAudio  = document.getElementById('inflate-audio');
+  const boomAudio    = document.getElementById('boom-audio');
+  const inflateAudio = document.getElementById('inflate-audio');
   const langSelect   = document.getElementById('lang-select');
 
   /* ── i18n ────────────────────────────────────────── */
@@ -567,7 +567,7 @@
       replay:     '↩ Jugar de nuevo',
       boom:       '¡BOOM!',
       errMinInt:  'Debe ser ≥ 1',
-      errMaxInt:  'Debe ser un numbero positivo',
+      errMaxInt:  'Debe ser un número positivo',
       errMaxGt:   'Debe ser mayor que los Mín. segundos',
     },
   };
@@ -615,13 +615,15 @@
 
   /* ── Balloon size constants ──────────────────────── */
   // vmin-based so it's always viewport-safe
-  const MIN_SIZE_VMIN  = 8;   // starting diameter (vmin)
-  const MAX_SIZE_VMIN  = 52;  // largest diameter before explosion (vmin)
+  const MIN_SIZE_VMIN = 8; // starting diameter (vmin)
+  const MAX_SIZE_VMIN = 52; // largest diameter before explosion (vmin)
 
   /* ── State ───────────────────────────────────────── */
   let elapsed        = 0;
   let explodeSeconds = 0;
   let ticker         = null;
+  let lastMin        = 10;
+  let lastMax        = 60;
 
   /* ── Helpers ─────────────────────────────────────── */
   function vminToPx(v) {
@@ -692,12 +694,10 @@
     if (rawMin !== '' && rawMax !== '') {
       const vMin = parseInt(rawMin, 10);
       const vMax = parseInt(rawMax, 10);
-      if (!isNaN(vMin) && !isNaN(vMax)) {
-        if (vMax <= vMin) {
+      if (!isNaN(vMin) && !isNaN(vMax) && vMax <= vMin) {
           maxError.textContent = t('errMaxGt');
           maxInput.classList.add('invalid');
           ok = false;
-        }
       }
     }
 
@@ -709,10 +709,15 @@
   minInput.addEventListener('input', validate);
   maxInput.addEventListener('input', validate);
 
+  /* ── Init: apply language and validate defaults ──── */
+  applyLang();
+
   /* ── Start game ──────────────────────────────────── */
   startBtn.addEventListener('click', () => {
     const minSec = parseInt(minInput.value, 10);
     const maxSec = parseInt(maxInput.value, 10);
+    lastMin = minSec;
+    lastMax = maxSec;
     explodeSeconds = randInt(minSec, maxSec);
 
     // Transition screens
@@ -751,8 +756,8 @@
 
     if (elapsed < explodeSeconds) {
       // Grow balloon
-      const progress = elapsed / explodeSeconds;   // 0 → 1
-      const eased    = Math.pow(progress, 0.7);    // ease out slightly
+      const progress = elapsed / explodeSeconds;
+      const eased    = Math.pow(progress, 0.7);
       const sizePx   = vminToPx(MIN_SIZE_VMIN + (MAX_SIZE_VMIN - MIN_SIZE_VMIN) * eased);
       setBalloonSize(sizePx);
     } else {
@@ -775,38 +780,29 @@
 
     // Show explosion container
     explosionEl.classList.add('active');
-
     // Spawn shards (pieces of balloon rubber)
     const SHARD_COUNT = 14;
     for (let i = 0; i < SHARD_COUNT; i++) {
-      const el = document.createElement('div');
+      const el    = document.createElement('div');
       el.className = 'shard';
-      const angle    = (i / SHARD_COUNT) * 360;
-      const dist     = 80 + Math.random() * 120;
-      const rad      = (angle * Math.PI) / 180;
-      const tx       = Math.round(Math.cos(rad) * dist);
-      const ty       = Math.round(Math.sin(rad) * dist);
-      const rot      = Math.round(Math.random() * 360 - 180);
-      const dur      = (0.55 + Math.random() * 0.35).toFixed(2);
-      const delay    = (Math.random() * 0.12).toFixed(2);
-
-      el.style.cssText = `
-        --rot: ${rot}deg;
-        --tx: ${tx}px;
-        --ty: ${ty}px;
-        --dur: ${dur}s;
-        --delay: ${delay}s;
-      `;
+      const angle = (i / SHARD_COUNT) * 360;
+      const dist  = 80 + Math.random() * 120;
+      const rad   = (angle * Math.PI) / 180;
+      const tx    = Math.round(Math.cos(rad) * dist);
+      const ty    = Math.round(Math.sin(rad) * dist);
+      const rot   = Math.round(Math.random() * 360 - 180);
+      const dur   = (0.55 + Math.random() * 0.35).toFixed(2);
+      const delay = (Math.random() * 0.12).toFixed(2);
+      el.style.cssText = `--rot:${rot}deg;--tx:${tx}px;--ty:${ty}px;--dur:${dur}s;--delay:${delay}s;`;
       // Vary shard colour slightly
       const hue = Math.random() > 0.5 ? 'var(--balloon-a)' : 'var(--balloon-b)';
       el.style.background = `linear-gradient(to bottom, ${hue}, var(--balloon-c))`;
       explosionEl.appendChild(el);
     }
-
     // Spawn sparks
     const SPARK_COUNT = 20;
     for (let i = 0; i < SPARK_COUNT; i++) {
-      const el = document.createElement('div');
+      const el    = document.createElement('div');
       el.className = 'spark';
       const angle = Math.random() * 360;
       const dist  = 40 + Math.random() * 140;
@@ -817,7 +813,7 @@
       const delay = (Math.random() * 0.15).toFixed(2);
       const cols  = ['#ffcc30', '#ff8c00', '#ff4422', '#ffffff'];
       el.style.background = cols[Math.floor(Math.random() * cols.length)];
-      el.style.cssText += `--tx: ${tx}px; --ty: ${ty}px; --dur: ${dur}s; --delay: ${delay}s;`;
+      el.style.cssText += `--tx:${tx}px;--ty:${ty}px;--dur:${dur}s;--delay:${delay}s;`;
       explosionEl.appendChild(el);
     }
 
@@ -835,14 +831,13 @@
     setupScreen.style.animation = 'none';
     void setupScreen.offsetWidth;
     setupScreen.style.animation = '';
-    // Reset inputs
-    minInput.value = '';
-    maxInput.value = '';
+    minInput.value = lastMin;
+    maxInput.value = lastMax;
     minInput.classList.remove('invalid');
     maxInput.classList.remove('invalid');
     minError.textContent = '';
     maxError.textContent = '';
-    startBtn.disabled = true;
+    validate();
   });
 </script>
 </body>
