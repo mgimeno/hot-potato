@@ -167,6 +167,46 @@
       font-weight: 600;
     }
 
+    .checkbox-group {
+      display: flex; align-items: center; gap: 10px;
+      cursor: pointer; user-select: none;
+    }
+    .checkbox-group input[type="checkbox"] {
+      appearance: none;
+      width: 18px; height: 18px; flex-shrink: 0;
+      border: 1.5px solid rgba(255,255,255,.22);
+      border-radius: 5px;
+      background: rgba(255,255,255,.06);
+      cursor: pointer;
+      position: relative;
+      transition: border-color .2s, background .2s, box-shadow .2s;
+    }
+    .checkbox-group input[type="checkbox"]:checked {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+    .checkbox-group input[type="checkbox"]:checked::after {
+      content: '';
+      position: absolute;
+      top: 2px; left: 5px;
+      width: 5px; height: 9px;
+      border: 2px solid #1a0800;
+      border-top: none; border-left: none;
+      transform: rotate(45deg);
+    }
+    .checkbox-group input[type="checkbox"]:focus {
+      box-shadow: 0 0 0 3px rgba(232,160,48,.2);
+      outline: none;
+    }
+    .checkbox-label {
+      font-size: .82rem;
+      font-weight: 700;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      cursor: pointer;
+    }
+
     #start-btn {
       margin-top: 6px;
       font-family: 'Boogaloo', cursive;
@@ -473,6 +513,11 @@
         <span class="field-error" id="max-error"></span>
       </div>
 
+      <label class="checkbox-group">
+        <input type="checkbox" id="inflate-toggle" checked />
+        <span class="checkbox-label" data-i18n="labelInflate">Inflating sound</span>
+      </label>
+
       <button id="start-btn" data-i18n="start">Start</button>
     </div>
   </div>
@@ -533,7 +578,8 @@
   const explosionTxt = document.getElementById('explosion-text');
   const replayBtn    = document.getElementById('replay-btn');
   const boomAudio    = document.getElementById('boom-audio');
-  const inflateAudio = document.getElementById('inflate-audio');
+  const inflateAudio   = document.getElementById('inflate-audio');
+  const inflateToggle  = document.getElementById('inflate-toggle');
   const langSelect   = document.getElementById('lang-select');
 
   /* ── i18n ────────────────────────────────────────── */
@@ -553,6 +599,7 @@
       errMinInt:  'Must be ≥ 1',
       errMaxInt:  'Must be a positive number',
       errMaxGt:   'Must be greater than Min seconds',
+      labelInflate:'Inflating sound',
     },
     es: {
       title:      '¡Patata Caliente!',
@@ -569,6 +616,7 @@
       errMinInt:  'Debe ser ≥ 1',
       errMaxInt:  'Debe ser un número positivo',
       errMaxGt:   'Debe ser mayor que los Mín. segundos',
+      labelInflate:'Sonido de inflado',
     },
   };
 
@@ -744,9 +792,11 @@
     clearInterval(ticker);
     ticker = setInterval(tick, 1000);
 
+    if (inflateToggle.checked) {
     // Play inflating sound on loop
     inflateAudio.currentTime = 0;
     inflateAudio.play().catch(() => {});
+    }
   });
 
   /* ── Tick ────────────────────────────────────────── */
