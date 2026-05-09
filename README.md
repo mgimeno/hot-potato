@@ -1,4 +1,4 @@
-# Hot Potato timer game
+# Hot Potato timer
 
 ## Demo URL
 
